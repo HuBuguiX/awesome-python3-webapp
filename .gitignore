@@ -4,6 +4,7 @@ test.db
 test.txt
 sina.html
 test.py
+test/*
 
 # C extensions
 *.so
