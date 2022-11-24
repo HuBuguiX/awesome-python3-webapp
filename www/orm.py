@@ -150,3 +150,33 @@ class ModelMetaclass(type):
         attrs['__update__'] = 'update `%s` set %s where `%s`=?' % (tableName, ', '.join(map(lambda f: '`%s`=?' % (mappings.get(f).name or f), fields)), primaryKey)
         attrs['__delete__'] = 'delete from `%s` where `%s`=?' % (tableName, primaryKey)
         return type.__new__(cls, name, bases, attrs)
+
+class Model(dict, metaclass=ModelMetaclass):
+    def __init__(self, **kw):
+        super().__init__(**kw)
+
+    # 通过属性访问键值对
+    def __gerattr__(self, key):
+        try:
+            return self[key]
+        except KeyError:
+            raise AttributeError(r"'Model' object has no arrtribute '%s'" % key)
+    
+    # 通过属性设置键值对
+    def __setattr__(self, key, value):
+        self[key] = value
+
+    def getValue(self, key):
+        return getattr(self, key, None)
+
+    # 访问表类的实例属性，若某属性无值，则从表类与表的映射关系中查找默认值
+    def getValueOrDefault(self, key):
+        value = getattr(self, key, None)
+        if value is None:
+            # 如果 Value 为 None，则从表类的类属性与字段类对象的映射关系中查找默认值
+            field = self.__mappings__[key] # 获取实例属性对应的字段类对象
+            if field.default is not None:
+                value = field.default() if callable(field.default) else field.default
+                logging.debug('using default value for %s: %s' % (key, str(value)))
+                setattr(self, key, value)
+        return value
