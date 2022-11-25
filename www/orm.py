@@ -72,9 +72,9 @@ class Field(object):
         self.default = default
 
     def __str__(self):
-        return '<%s, %s: %s>' % (self.__clas__.__name__, self.column_type, self.name)
+        return '<%s, %s: %s>' % (self.__class__.__name__, self.column_type, self.name)
 
-class stringField(Field):
+class StringField(Field):
     def __init__(self, name=None, primary_key=False, default=None, ddl='varchar(100)'):
         super().__init__(name, ddl, primary_key, default)
 
@@ -156,7 +156,7 @@ class Model(dict, metaclass=ModelMetaclass):
         super().__init__(**kw)
 
     # 通过属性访问键值对
-    def __gerattr__(self, key):
+    def __getattr__(self, key):
         try:
             return self[key]
         except KeyError:
