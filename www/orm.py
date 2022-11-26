@@ -55,44 +55,12 @@ async def execute(sql, args):
             raise
         return affected
 
-# 2022/11/21
 # 创建指定数量的sql语句占位符
 def create_args_string(num):
     L = []
     for _ in range(num):
         L.append('?')
     return ', '.join(L)
-
-# 定义字段与类之间的映射
-class Field(object):
-    def __init__(self, name, column_type, primary_key, default):
-        self.name = name
-        self.column_type = column_type
-        self.primary_key = primary_key
-        self.default = default
-
-    def __str__(self):
-        return '<%s, %s: %s>' % (self.__class__.__name__, self.column_type, self.name)
-
-class StringField(Field):
-    def __init__(self, name=None, primary_key=False, default=None, ddl='varchar(100)'):
-        super().__init__(name, ddl, primary_key, default)
-
-class BooleanField(Field):
-    def __init__(self, name=None, default=False):
-        super().__init__(name, 'boolean', False, default)
-
-class IntegerField(Field):
-    def __init__(self, name=None, primary_key=False, default=0):
-        super().__init__(name, 'bigint', primary_key, default)
-
-class FloatField(Field):
-    def __init__(self, name=None, primary_key=False, default=0):
-        super().__init__(name, 'real', primary_key, default)
-
-class TextField(Field):
-    def __init__(self, name=None, default=None):
-        super().__init__(name, 'text', False, default)
 
 class ModelMetaclass(type):
     # cls: 当前准备创建的类的对象
@@ -180,3 +148,104 @@ class Model(dict, metaclass=ModelMetaclass):
                 logging.debug('using default value for %s: %s' % (key, str(value)))
                 setattr(self, key, value)
         return value
+
+    @classmethod
+    async def findAll(cls, where=None, args=None, **kw):
+        # find objects by where clause
+        sql = [cls.__select__]
+        orderBy = kw.get('orderBy', None)
+        limit = kw.get('limit', None)
+        if where:
+            sql.append('where')
+            sql.append(where)
+        if args is None:
+            args = []
+        if orderBy:
+            sql.append('order by')
+            sql.append(orderBy)
+        if limit is not None:
+            sql.append('limit')
+            if isinstance(limit, int):
+                sql.append('?')
+                args.append(limit)
+            elif isinstance(limit, tuple) and len(limit) == 2:
+                sql.append('?, ?')
+                # extend 把 limit 加到末尾
+                args.extend(limit)
+            else:
+                raise ValueError('Invalid limit value: %s' % str(limit))
+        rs = await select(' '.join(sql), args)
+        # 返回选择的列表里的所有值
+        return [cls(**r) for r in rs]
+
+    # find number by select and where
+    @classmethod
+    async def findNumber(cls, selectField, where=None, args=None):
+        sql = ['select %s _num_ from `%s`' % (selectField, cls.__table__)]
+        if where:
+            sql.append('where')
+            sql.append(where)
+        rs = await select(' '.join(sql), args, 1)
+        if len(rs) == 0:
+            return None
+        return rs[0]['_num_']
+
+    @classmethod
+    async def find(cls, pk):
+        # find object by primary key
+        rs = await select('%s where `%s`=?' % (cls.__select__, cls.__primary_key__), [pk], 1)
+        if len(rs) == 0:
+            return None
+        return cls(**rs[0])
+
+    # 将对象保存到数据库
+    async def save(self):
+        args = list(map(self.getValueOrDefault,self.__fields__))
+        args.append(self.getValueOrDefault(self.__primary_key__))
+        rows = await execute(self.__insert__, args)
+        if rows != 1:
+            logging.warning('failed to insert record: affected rows: %s' % rows)
+
+    async def update(self):
+        args = list(map(self.getValue, self.__fields__))
+        args.append(self.getValue(self.__primary_key__))
+        rows = await execute(self.__update__, args)
+        if rows != 1:
+            logging.warning('failed to update by primary key: affected rows: %s' % rows)
+
+    async def remove(self):
+        args = [self.getValue(self.__primary_key__)]
+        rows = await execute(self.__delete__, args)
+        if rows != 1:
+            logging.warning('failed to remove by primary key: affected rows: %s' % rows)
+
+# 定义字段与类之间的映射
+class Field(object):
+    def __init__(self, name, column_type, primary_key, default):
+        self.name = name
+        self.column_type = column_type
+        self.primary_key = primary_key
+        self.default = default
+
+    def __str__(self):
+        return '<%s, %s: %s>' % (self.__class__.__name__, self.column_type, self.name)
+
+class StringField(Field):
+    def __init__(self, name=None, primary_key=False, default=None, ddl='varchar(100)'):
+        super().__init__(name, ddl, primary_key, default)
+
+class BooleanField(Field):
+    def __init__(self, name=None, default=False):
+        super().__init__(name, 'boolean', False, default)
+
+class IntegerField(Field):
+    def __init__(self, name=None, primary_key=False, default=0):
+        super().__init__(name, 'bigint', primary_key, default)
+
+class FloatField(Field):
+    def __init__(self, name=None, primary_key=False, default=0):
+        super().__init__(name, 'real', primary_key, default)
+
+class TextField(Field):
+    def __init__(self, name=None, default=None):
+        super().__init__(name, 'text', False, default)
