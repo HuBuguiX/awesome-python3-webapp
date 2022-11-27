@@ -1,3 +1,6 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
 import asyncio, logging, aiomysql; logging.basicConfig(level=logging.INFO)
 
 #创建日志函数
