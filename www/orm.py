@@ -5,7 +5,8 @@ import asyncio, logging, aiomysql; logging.basicConfig(level=logging.INFO)
 
 #创建日志函数
 def log(sql, args=()):
-    logging.info(sql.replace('?', '%s'), args or ())
+    print('**************************')
+    logging.info('SQL: %s' % sql)
 
 #创建连接池函数
 async def create_pool(loop, **kw):
@@ -112,7 +113,7 @@ class ModelMetaclass(type):
         # 将表名保存到类属性的 '__table__' 中
         attrs['__table__'] = tableName
         # 将主键保存到类属性的 '__primary__key__' 中
-        attrs['__primary_key_'] = primaryKey
+        attrs['__primary_key__'] = primaryKey
         # 将非主键字段保存到类属性的 '__fields__' 中
         attrs['__fields__'] = fields
         # 构造默认的 SELECT, INSERT, UPDATE和 DELETE 语句，将其保存到对应的类属性中
